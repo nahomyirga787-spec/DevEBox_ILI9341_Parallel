@@ -116,10 +116,9 @@ public:
   ) const;
 
   // Decode one complete interleaved MCU, including dequantization
-  // and IDCT. Blocks are returned in SOS component order, then
-  // row-major order within each component's sampling grid.
-  //
-  // Restart intervals are not supported by this first MCU decoder.
+  // and IDCT. Restart markers are validated and handled internally.
+  // Blocks are returned in SOS component order, then row-major order
+  // within each component's sampling grid.
   bool decodeMCU(File &file, MCU &mcu);
 
   uint16_t mcuColumns() const;
@@ -141,6 +140,10 @@ private:
   // Independent DC predictors for Y, Cb and Cr.
   int32_t dcPredictors_[MAX_COMPONENTS];
 
+  // Restart sequence state for the current scan.
+  uint32_t decodedMCUs_;
+  uint8_t expectedRestartMarker_;
+
   // File reading.
   bool readByte(File &file, uint8_t &value);
   bool readWord(File &file, uint16_t &value);
@@ -158,9 +161,10 @@ private:
   // Huffman table construction.
   bool buildHuffmanTable(HuffmanTable &table);
 
-  // Entropy reading.
+  // Entropy reading and restart handling.
   bool readEntropyByte(File &file);
   bool readBit(File &file, uint8_t &bit);
+  bool consumeRestartMarker(File &file);
 
   void reset();
 };

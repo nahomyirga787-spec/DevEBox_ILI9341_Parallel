@@ -30,6 +30,9 @@ void DevEBox_JPEG::reset() {
 
   memset(dcPredictors_, 0, sizeof(dcPredictors_));
 
+  decodedMCUs_ = 0;
+  expectedRestartMarker_ = 0;
+
   beginEntropy();
 }
 
@@ -632,6 +635,9 @@ void DevEBox_JPEG::beginEntropy() {
   markerPending_ = false;
 
   memset(dcPredictors_, 0, sizeof(dcPredictors_));
+
+  decodedMCUs_ = 0;
+  expectedRestartMarker_ = 0;
 }
 
 
@@ -1079,6 +1085,66 @@ uint16_t DevEBox_JPEG::mcuRows() const {
 
 
 // ============================================================
+// CONSUME AND VALIDATE A RESTART MARKER
+// ============================================================
+
+bool DevEBox_JPEG::consumeRestartMarker(File &file) {
+
+  // The remaining bits in the current entropy byte are padding bits.
+  // A restart marker always begins at the next byte boundary.
+  bitsRemaining_ = 0;
+  bitBuffer_ = 0;
+
+  uint8_t marker = 0;
+
+  // readEntropyByte() may already have consumed the marker while
+  // attempting to read beyond the entropy data. Reuse that marker
+  // rather than reading past it.
+  if (markerPending_) {
+    marker = pendingMarker_;
+    pendingMarker_ = 0;
+    markerPending_ = false;
+  }
+  else {
+    int value = file.read();
+
+    if (value < 0 || (uint8_t)value != 0xFF) {
+      return false;
+    }
+
+    // JPEG permits one or more 0xFF fill bytes before a marker code.
+    do {
+      value = file.read();
+      if (value < 0) {
+        return false;
+      }
+    } while ((uint8_t)value == 0xFF);
+
+    marker = (uint8_t)value;
+
+    // 0x00 is byte stuffing, not a restart marker.
+    if (marker == 0x00) {
+      return false;
+    }
+  }
+
+  const uint8_t expected = 0xD0 + expectedRestartMarker_;
+
+  if (marker != expected) {
+    return false;
+  }
+
+  expectedRestartMarker_ = (expectedRestartMarker_ + 1) & 0x07;
+
+  // DC differential prediction restarts independently for every
+  // component at each restart interval.
+  memset(dcPredictors_, 0, sizeof(dcPredictors_));
+
+  return true;
+}
+
+
+// ============================================================
 // DECODE ONE COMPLETE MCU
 // ============================================================
 
@@ -1091,13 +1157,6 @@ bool DevEBox_JPEG::decodeMCU(File &file, MCU &mcu) {
       !imageInfo_.scanFound ||
       imageInfo_.componentCount == 0 ||
       imageInfo_.scanComponentCount != imageInfo_.componentCount) {
-    return false;
-  }
-
-  // Restart marker processing is a separate feature. Refuse such
-  // streams rather than silently decoding them incorrectly.
-  if (imageInfo_.restartIntervalDefined &&
-      imageInfo_.restartInterval != 0) {
     return false;
   }
 
@@ -1213,7 +1272,32 @@ bool DevEBox_JPEG::decodeMCU(File &file, MCU &mcu) {
     }
   }
 
-  return mcu.blockCount == expectedBlockCount;
+  if (mcu.blockCount != expectedBlockCount) {
+    return false;
+  }
+
+  decodedMCUs_++;
+
+  // A restart marker follows every N MCUs, except when that boundary
+  // is also the end of the complete scan.
+  const uint16_t restartInterval =
+    imageInfo_.restartIntervalDefined
+      ? imageInfo_.restartInterval
+      : 0;
+
+  const uint32_t totalMCUs =
+    (uint32_t)mcuColumns() * (uint32_t)mcuRows();
+
+  if (restartInterval != 0 &&
+      (decodedMCUs_ % restartInterval) == 0 &&
+      decodedMCUs_ < totalMCUs) {
+
+    if (!consumeRestartMarker(file)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 
