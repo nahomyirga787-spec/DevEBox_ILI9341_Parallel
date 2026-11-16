@@ -41,7 +41,7 @@ void DevEBox_JPEG::reset() {
 // BASIC FILE READING
 // ============================================================
 
-bool DevEBox_JPEG::readByte(File &file, uint8_t &value) {
+bool DevEBox_JPEG::readByte(File32 &file, uint8_t &value) {
 
   int result = file.read();
 
@@ -54,7 +54,7 @@ bool DevEBox_JPEG::readByte(File &file, uint8_t &value) {
 }
 
 
-bool DevEBox_JPEG::readWord(File &file, uint16_t &value) {
+bool DevEBox_JPEG::readWord(File32 &file, uint16_t &value) {
 
   uint8_t highByte;
   uint8_t lowByte;
@@ -70,16 +70,16 @@ bool DevEBox_JPEG::readWord(File &file, uint16_t &value) {
 }
 
 
-bool DevEBox_JPEG::skipBytes(File &file, uint32_t count) {
+bool DevEBox_JPEG::skipBytes(File32 &file, uint32_t count) {
 
-  uint32_t position = file.position();
-  uint32_t size = file.size();
+  uint32_t position = file.curPosition();
+  uint32_t size = file.fileSize();
 
   if (position > size || count > size - position) {
     return false;
   }
 
-  return file.seek(position + count);
+  return file.seekSet(position + count);
 }
 
 
@@ -87,7 +87,7 @@ bool DevEBox_JPEG::skipBytes(File &file, uint32_t count) {
 // JPEG MARKER READING
 // ============================================================
 
-bool DevEBox_JPEG::readMarker(File &file, uint8_t &marker) {
+bool DevEBox_JPEG::readMarker(File32 &file, uint8_t &marker) {
 
   uint8_t value;
 
@@ -175,7 +175,7 @@ bool DevEBox_JPEG::buildHuffmanTable(HuffmanTable &table) {
 // DQT - QUANTIZATION TABLES
 // ============================================================
 
-bool DevEBox_JPEG::parseDQT(File &file, uint16_t length) {
+bool DevEBox_JPEG::parseDQT(File32 &file, uint16_t length) {
 
   if (length < 3) {
     return false;
@@ -227,7 +227,7 @@ bool DevEBox_JPEG::parseDQT(File &file, uint16_t length) {
 // DHT - HUFFMAN TABLES
 // ============================================================
 
-bool DevEBox_JPEG::parseDHT(File &file, uint16_t length) {
+bool DevEBox_JPEG::parseDHT(File32 &file, uint16_t length) {
 
   if (length < 2) {
     return false;
@@ -308,7 +308,7 @@ bool DevEBox_JPEG::parseDHT(File &file, uint16_t length) {
 // SOF0 - BASELINE FRAME
 // ============================================================
 
-bool DevEBox_JPEG::parseSOF0(File &file, uint16_t length) {
+bool DevEBox_JPEG::parseSOF0(File32 &file, uint16_t length) {
 
   if (length < 11) {
     return false;
@@ -395,7 +395,7 @@ bool DevEBox_JPEG::parseSOF0(File &file, uint16_t length) {
 // DRI - RESTART INTERVAL
 // ============================================================
 
-bool DevEBox_JPEG::parseDRI(File &file, uint16_t length) {
+bool DevEBox_JPEG::parseDRI(File32 &file, uint16_t length) {
 
   if (length != 4) {
     return false;
@@ -414,7 +414,7 @@ bool DevEBox_JPEG::parseDRI(File &file, uint16_t length) {
 // SOS - START OF SCAN
 // ============================================================
 
-bool DevEBox_JPEG::parseSOS(File &file, uint16_t length) {
+bool DevEBox_JPEG::parseSOS(File32 &file, uint16_t length) {
 
   if (!imageInfo_.baseline) {
     return false;
@@ -525,7 +525,7 @@ bool DevEBox_JPEG::parseSOS(File &file, uint16_t length) {
 // ============================================================
 
 bool DevEBox_JPEG::parseSegment(
-  File &file,
+  File32 &file,
   uint8_t marker,
   uint16_t length
 ) {
@@ -561,13 +561,13 @@ bool DevEBox_JPEG::parseSegment(
 // MAIN JPEG HEADER PARSER
 // ============================================================
 
-bool DevEBox_JPEG::parse(File &file, Stream *diagnostics) {
+bool DevEBox_JPEG::parse(File32 &file, Stream *diagnostics) {
 
   (void)diagnostics;
 
   reset();
 
-  if (!file || !file.seek(0)) {
+  if (!file || !file.seekSet(0)) {
     return false;
   }
 
@@ -645,7 +645,7 @@ void DevEBox_JPEG::beginEntropy() {
 // READ ENTROPY BYTE
 // ============================================================
 
-bool DevEBox_JPEG::readEntropyByte(File &file) {
+bool DevEBox_JPEG::readEntropyByte(File32 &file) {
 
   if (markerPending_) {
     return false;
@@ -692,7 +692,7 @@ bool DevEBox_JPEG::readEntropyByte(File &file) {
 // READ ONE BIT
 // ============================================================
 
-bool DevEBox_JPEG::readBit(File &file, uint8_t &bit) {
+bool DevEBox_JPEG::readBit(File32 &file, uint8_t &bit) {
 
   if (bitsRemaining_ == 0) {
 
@@ -717,7 +717,7 @@ bool DevEBox_JPEG::readBit(File &file, uint8_t &bit) {
 // ============================================================
 
 bool DevEBox_JPEG::readBits(
-  File &file,
+  File32 &file,
   uint8_t count,
   uint16_t &value
 ) {
@@ -748,7 +748,7 @@ bool DevEBox_JPEG::readBits(
 // ============================================================
 
 bool DevEBox_JPEG::decodeHuffmanSymbol(
-  File &file,
+  File32 &file,
   const HuffmanTable &table,
   uint8_t &symbol
 ) {
@@ -801,7 +801,7 @@ bool DevEBox_JPEG::decodeHuffmanSymbol(
 // ============================================================
 
 bool DevEBox_JPEG::receiveExtend(
-  File &file,
+  File32 &file,
   uint8_t category,
   int16_t &value
 ) {
@@ -845,7 +845,7 @@ bool DevEBox_JPEG::receiveExtend(
 // ============================================================
 
 bool DevEBox_JPEG::decodeBlock(
-  File &file,
+  File32 &file,
   uint8_t componentIndex,
   int16_t coefficients[64]
 ) {
@@ -1011,7 +1011,6 @@ bool DevEBox_JPEG::dequantizeBlock(
 }
 
 
-
 // ============================================================
 // MCU GEOMETRY
 // ============================================================
@@ -1088,7 +1087,7 @@ uint16_t DevEBox_JPEG::mcuRows() const {
 // CONSUME AND VALIDATE A RESTART MARKER
 // ============================================================
 
-bool DevEBox_JPEG::consumeRestartMarker(File &file) {
+bool DevEBox_JPEG::consumeRestartMarker(File32 &file) {
 
   // The remaining bits in the current entropy byte are padding bits.
   // A restart marker always begins at the next byte boundary.
@@ -1148,7 +1147,7 @@ bool DevEBox_JPEG::consumeRestartMarker(File &file) {
 // DECODE ONE COMPLETE MCU
 // ============================================================
 
-bool DevEBox_JPEG::decodeMCU(File &file, MCU &mcu) {
+bool DevEBox_JPEG::decodeMCU(File32 &file, MCU &mcu) {
 
   mcu.blockCount = 0;
 

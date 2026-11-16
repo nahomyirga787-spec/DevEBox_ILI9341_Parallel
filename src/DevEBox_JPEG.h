@@ -1,7 +1,8 @@
+
 #pragma once
 
 #include <Arduino.h>
-#include <SD.h>
+#include <SdFat.h>
 
 class DevEBox_JPEG {
 
@@ -73,7 +74,7 @@ public:
 
   DevEBox_JPEG();
 
-  bool parse(File &file, Stream *diagnostics = nullptr);
+  bool parse(File32 &file, Stream *diagnostics = nullptr);
 
   void printInfo(Stream &output) const;
 
@@ -83,26 +84,26 @@ public:
   void beginEntropy();
 
   bool readBits(
-    File &file,
+    File32 &file,
     uint8_t count,
     uint16_t &value
   );
 
   bool decodeHuffmanSymbol(
-    File &file,
+    File32 &file,
     const HuffmanTable &table,
     uint8_t &symbol
   );
 
   bool receiveExtend(
-    File &file,
+    File32 &file,
     uint8_t category,
     int16_t &value
   );
 
   // Decode one 8x8 block into natural coefficient order.
   bool decodeBlock(
-    File &file,
+    File32 &file,
     uint8_t componentIndex,
     int16_t coefficients[64]
   );
@@ -119,7 +120,7 @@ public:
   // and IDCT. Restart markers are validated and handled internally.
   // Blocks are returned in SOS component order, then row-major order
   // within each component's sampling grid.
-  bool decodeMCU(File &file, MCU &mcu);
+  bool decodeMCU(File32 &file, MCU &mcu);
 
   uint16_t mcuColumns() const;
   uint16_t mcuRows() const;
@@ -145,26 +146,26 @@ private:
   uint8_t expectedRestartMarker_;
 
   // File reading.
-  bool readByte(File &file, uint8_t &value);
-  bool readWord(File &file, uint16_t &value);
-  bool readMarker(File &file, uint8_t &marker);
-  bool skipBytes(File &file, uint32_t count);
+  bool readByte(File32 &file, uint8_t &value);
+  bool readWord(File32 &file, uint16_t &value);
+  bool readMarker(File32 &file, uint8_t &marker);
+  bool skipBytes(File32 &file, uint32_t count);
 
   // JPEG segment parsing.
-  bool parseSegment(File &file, uint8_t marker, uint16_t length);
-  bool parseDQT(File &file, uint16_t length);
-  bool parseDHT(File &file, uint16_t length);
-  bool parseSOF0(File &file, uint16_t length);
-  bool parseDRI(File &file, uint16_t length);
-  bool parseSOS(File &file, uint16_t length);
+  bool parseSegment(File32 &file, uint8_t marker, uint16_t length);
+  bool parseDQT(File32 &file, uint16_t length);
+  bool parseDHT(File32 &file, uint16_t length);
+  bool parseSOF0(File32 &file, uint16_t length);
+  bool parseDRI(File32 &file, uint16_t length);
+  bool parseSOS(File32 &file, uint16_t length);
 
   // Huffman table construction.
   bool buildHuffmanTable(HuffmanTable &table);
 
   // Entropy reading and restart handling.
-  bool readEntropyByte(File &file);
-  bool readBit(File &file, uint8_t &bit);
-  bool consumeRestartMarker(File &file);
+  bool readEntropyByte(File32 &file);
+  bool readBit(File32 &file, uint8_t &bit);
+  bool consumeRestartMarker(File32 &file);
 
   void reset();
 };

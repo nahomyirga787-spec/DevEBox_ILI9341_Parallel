@@ -1,4 +1,6 @@
+
 #include "DevEBox_JPEG_Display.h"
+
 
 uint32_t DevEBox_JPEG_Display::ceilDivide(
   uint64_t numerator,
@@ -109,7 +111,7 @@ bool DevEBox_JPEG_Display::renderMCU(
 
 bool DevEBox_JPEG_Display::draw(
   DevEBox_ILI9341 &tft,
-  File &file,
+  File32 &file,
   float scale,
   Stream *diagnostics
 ) {
@@ -123,7 +125,7 @@ bool DevEBox_JPEG_Display::draw(
 
 bool DevEBox_JPEG_Display::drawInternal(
   DevEBox_ILI9341 &tft,
-  File &file,
+  File32 &file,
   float scale,
   Stream *diagnostics
 ) {
@@ -220,5 +222,6 @@ bool DevEBox_JPEG_Display::drawInternal(
     diagnostics->print("Decoded MCUs: ");
     diagnostics->println(decodedMCUs);
   }
+
   return true;
 }

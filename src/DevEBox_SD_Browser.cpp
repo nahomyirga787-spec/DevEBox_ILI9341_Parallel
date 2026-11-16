@@ -3,52 +3,48 @@
 
 #include <string.h>
 
-// ==========================================
+// ============================================================
 // CONSTRUCTOR
-// ==========================================
+// ============================================================
 
-DevEBox_SD_Browser::DevEBox_SD_Browser() {
+DevEBox_SD_Browser::DevEBox_SD_Browser(SdFat32 &sd)
+  : sd_(sd) {
 
   strcpy(currentPath_, "/");
-
 }
 
-// ==========================================
+// ============================================================
 // INITIALIZATION
-// ==========================================
+// ============================================================
 
 bool DevEBox_SD_Browser::begin() {
 
   strcpy(currentPath_, "/");
 
-  File root = SD.open("/");
+  File32 root = sd_.open("/", O_RDONLY);
 
-  if (!root || !root.isDirectory()) {
-
+  if (!root || !root.isDir()) {
     root.close();
     return false;
-
   }
 
   root.close();
 
   return true;
-
 }
 
-// ==========================================
+// ============================================================
 // CURRENT DIRECTORY
-// ==========================================
+// ============================================================
 
 const char *DevEBox_SD_Browser::currentPath() const {
 
   return currentPath_;
-
 }
 
-// ==========================================
+// ============================================================
 // BUILD ABSOLUTE PATH
-// ==========================================
+// ============================================================
 
 bool DevEBox_SD_Browser::buildPath(
   const char *name,
@@ -71,10 +67,9 @@ bool DevEBox_SD_Browser::buildPath(
       "%s",
       name
     );
-
   }
 
-  // Relative path.
+  // Relative path from root.
   else if (strcmp(currentPath_, "/") == 0) {
 
     written = snprintf(
@@ -83,9 +78,9 @@ bool DevEBox_SD_Browser::buildPath(
       "/%s",
       name
     );
-
   }
 
+  // Relative path from current directory.
   else {
 
     written = snprintf(
@@ -95,17 +90,15 @@ bool DevEBox_SD_Browser::buildPath(
       currentPath_,
       name
     );
-
   }
 
   return written >= 0 &&
          (size_t)written < destinationSize;
-
 }
 
-// ==========================================
+// ============================================================
 // DIRECTORY LISTING
-// ==========================================
+// ============================================================
 
 void DevEBox_SD_Browser::listDirectory(Stream &output) {
 
@@ -117,33 +110,44 @@ void DevEBox_SD_Browser::listDirectory(Stream &output) {
   output.print("Path: ");
   output.println(currentPath_);
 
-  File directory = SD.open(currentPath_);
+  File32 directory = sd_.open(
+    currentPath_,
+    O_RDONLY
+  );
 
-  if (!directory || !directory.isDirectory()) {
+  if (!directory || !directory.isDir()) {
 
     output.println("ERROR: Cannot open directory.");
 
     directory.close();
     return;
-
   }
 
   uint16_t entryCount = 0;
 
-  File entry = directory.openNextFile();
+  File32 entry;
 
-  while (entry) {
+  while (entry.openNext(&directory, O_RDONLY)) {
 
-    output.print(entry.isDirectory() ? "[DIR]  " : "[FILE] ");
+    char filename[MAX_FILENAME_LENGTH];
 
-    output.print(entry.name());
+    filename[0] = '\0';
 
-    if (!entry.isDirectory()) {
+    entry.getName(
+      filename,
+      sizeof(filename)
+    );
+
+    const bool isDirectory = entry.isDir();
+
+    output.print(isDirectory ? "[DIR]  " : "[FILE] ");
+    output.print(filename);
+
+    if (!isDirectory) {
 
       output.print("  (");
-      output.print(entry.size());
+      output.print(entry.fileSize());
       output.print(" bytes)");
-
     }
 
     output.println();
@@ -151,9 +155,6 @@ void DevEBox_SD_Browser::listDirectory(Stream &output) {
     entryCount++;
 
     entry.close();
-
-    entry = directory.openNextFile();
-
   }
 
   directory.close();
@@ -164,12 +165,11 @@ void DevEBox_SD_Browser::listDirectory(Stream &output) {
   output.println(entryCount);
 
   output.println("================================");
-
 }
 
-// ==========================================
+// ============================================================
 // CHANGE DIRECTORY
-// ==========================================
+// ============================================================
 
 bool DevEBox_SD_Browser::changeDirectory(
   const char *directory,
@@ -186,18 +186,19 @@ bool DevEBox_SD_Browser::changeDirectory(
 
     output.println("ERROR: Invalid path.");
     return false;
-
   }
 
-  File target = SD.open(newPath);
+  File32 target = sd_.open(
+    newPath,
+    O_RDONLY
+  );
 
-  if (!target || !target.isDirectory()) {
+  if (!target || !target.isDir()) {
 
     output.println("ERROR: Directory not found.");
 
     target.close();
     return false;
-
   }
 
   target.close();
@@ -208,12 +209,11 @@ bool DevEBox_SD_Browser::changeDirectory(
   output.println(currentPath_);
 
   return true;
-
 }
 
-// ==========================================
+// ============================================================
 // PARENT DIRECTORY
-// ==========================================
+// ============================================================
 
 bool DevEBox_SD_Browser::goUp(Stream &output) {
 
@@ -221,7 +221,6 @@ bool DevEBox_SD_Browser::goUp(Stream &output) {
 
     output.println("Already at root directory.");
     return false;
-
   }
 
   char *lastSlash = strrchr(currentPath_, '/');
@@ -229,33 +228,29 @@ bool DevEBox_SD_Browser::goUp(Stream &output) {
   if (lastSlash == nullptr) {
 
     strcpy(currentPath_, "/");
-
   }
 
   else if (lastSlash == currentPath_) {
 
     strcpy(currentPath_, "/");
-
   }
 
   else {
 
     *lastSlash = '\0';
-
   }
 
   output.print("Current directory: ");
   output.println(currentPath_);
 
   return true;
-
 }
 
-// ==========================================
+// ============================================================
 // OPEN FILE
-// ==========================================
+// ============================================================
 
-File DevEBox_SD_Browser::openFile(
+File32 DevEBox_SD_Browser::openFile(
   const char *filename,
   Stream &output
 ) {
@@ -269,31 +264,30 @@ File DevEBox_SD_Browser::openFile(
       )) {
 
     output.println("ERROR: Invalid filename.");
-    return File();
-
+    return File32();
   }
 
-  File file = SD.open(filePath, FILE_READ);
+  File32 file = sd_.open(
+    filePath,
+    O_RDONLY
+  );
 
   if (!file) {
 
     output.println("ERROR: File not found.");
-    return File();
-
+    return File32();
   }
 
-  if (file.isDirectory()) {
+  if (file.isDir()) {
 
     output.println("ERROR: This is a directory, not a file.");
 
     file.close();
-    return File();
-
+    return File32();
   }
 
   output.print("Opening: ");
   output.println(filePath);
 
   return file;
-
 }

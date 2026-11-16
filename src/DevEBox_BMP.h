@@ -2,11 +2,12 @@
 #pragma once
 
 #include <Arduino.h>
-#include <SD.h>
+#include <SdFat.h>
+
 #include "DevEBox_ILI9341.h"
 
 /*
- * BMP reader for SD library File objects.
+ * BMP reader for SdFat File32 objects.
  *
  * Currently supported:
  *   - 24-bit BI_RGB
@@ -20,18 +21,20 @@
  *   - Screen clipping
  *   - Sequential, sector-aware SD reading
  *
- * The reader accepts an already-open File.
- * The caller owns SD.begin(), SD.open(), and File.close().
+ * The reader accepts an already-open File32.
+ * The caller owns SD initialization, file opening, and closing.
  *
  * diagnostics may be nullptr.
  */
+
 class DevEBox_BMP {
+
 public:
 
-  // Original interface: native-size rendering
+  // Native-size rendering
   static bool draw(
     DevEBox_ILI9341 &display,
-    File &file,
+    File32 &file,
     Stream *diagnostics = nullptr
   );
 
@@ -41,7 +44,7 @@ public:
   // scale = 0.5: half the dimensions
   static bool draw(
     DevEBox_ILI9341 &display,
-    File &file,
+    File32 &file,
     float scale,
     Stream *diagnostics = nullptr
   );

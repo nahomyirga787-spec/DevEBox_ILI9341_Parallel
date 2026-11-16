@@ -119,7 +119,7 @@ static uint64_t ceilDivide(
 
 bool DevEBox_BMP::draw(
   DevEBox_ILI9341 &display,
-  File &bmp,
+  File32 &bmp,
   Stream *diagnostics
 ) {
 
@@ -133,7 +133,7 @@ bool DevEBox_BMP::draw(
 
 bool DevEBox_BMP::draw(
   DevEBox_ILI9341 &display,
-  File &bmp,
+  File32 &bmp,
   float scale,
   Stream *diagnostics
 ) {
@@ -162,11 +162,11 @@ bool DevEBox_BMP::draw(
     return false;
   }
 
-  const uint32_t actualFileSize = bmp.size();
+  const uint32_t actualFileSize = bmp.fileSize();
 
   uint8_t header[54];
 
-  if (!bmp.seek(0) ||
+  if (!bmp.seekSet(0) ||
       bmp.read(header, sizeof(header)) != sizeof(header)) {
 
     logLine(diagnostics, "BMP ERROR: cannot read BMP header.");
@@ -298,7 +298,7 @@ bool DevEBox_BMP::draw(
     const uint32_t maskOffset = 14UL + 40UL;
 
     if ((uint64_t)maskOffset + 12ULL > pixelOffset ||
-        !bmp.seek(maskOffset)) {
+        !bmp.seekSet(maskOffset)) {
 
       logLine(diagnostics, "BMP ERROR: invalid RGB masks.");
       return false;
@@ -425,7 +425,7 @@ bool DevEBox_BMP::draw(
   // 10. SEEK TO PIXEL DATA
   // ----------------------------------------
 
-  if (!bmp.seek(pixelOffset)) {
+  if (!bmp.seekSet(pixelOffset)) {
     logLine(diagnostics, "BMP ERROR: cannot seek to pixel data.");
     return false;
   }
@@ -450,7 +450,7 @@ bool DevEBox_BMP::draw(
     // Read one row in small, sector-aware chunks.
     while (rowBytesRemaining > 0) {
 
-      const uint32_t filePosition = bmp.position();
+      const uint32_t filePosition = bmp.curPosition();
 
       const uint32_t bytesToSectorEnd =
         512UL - (filePosition % 512UL);
@@ -480,7 +480,7 @@ bool DevEBox_BMP::draw(
 
           logValue(diagnostics, "Expected row bytes: ", rowSize);
 
-          logValue(diagnostics, "File position: ", bmp.position());
+          logValue(diagnostics, "File position: ", bmp.curPosition());
         }
 
         return false;
