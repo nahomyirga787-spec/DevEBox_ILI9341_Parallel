@@ -1,16 +1,19 @@
 # DevEBox ILI9341 Parallel
 
-An Arduino library for the DevEBox 3.2-inch ILI9341 TFT display using its 16-bit parallel interface.
+An Arduino library for the **DevEBox 3.2-inch ILI9341 TFT display** using its 16-bit parallel interface.
 
-The initial hardware target is:
+## Target hardware
 
 - STM32F103C8T6 Blue Pill
 - DevEBox ILI9341 320 × 240 TFT, 16-bit parallel bus
 - Optional SPI microSD card module
 - STM32duino Arduino core
 - Adafruit GFX Library
+- SdFat library
 
-**Project status:** Version `1.0.0`. The original display, SD card, BMP, and JPEG functionality has been demonstrated on the target hardware. The modular library has been organized into reusable components and examples. Continue testing the modular release as changes are made; do not assume every example or configuration has been independently regression-tested.
+**Project version:** 1.0.0
+
+The library provides a modular display driver, BMP and baseline JPEG image decoding, image scaling, and microSD file browsing. The library components and six examples have been tested on the target Blue Pill hardware. Compatibility with other boards and display modules has not yet been established.
 
 ## Features
 
@@ -30,7 +33,8 @@ The initial hardware target is:
 - Bottom-up and top-down BMP orientation
 - RGB mask extraction and RGB888-to-RGB565 conversion
 - Image scaling, including downscaling images larger than the display
-- Chunked SD reads to handle sector boundaries
+- Centered rendering and display-boundary clipping
+- Chunked SD reads
 
 ### JPEG image support
 
@@ -38,31 +42,47 @@ The initial hardware target is:
 - Baseline sequential JPEG (`SOF0`), 8-bit
 - Grayscale and three-component JFIF-style YCbCr images
 - 4:4:4, 4:2:2, and 4:2:0 chroma sampling
-- MCU-based decoding and direct TFT rendering
+- MCU-based decoding and incremental TFT rendering
+- Fixed-point IDCT and color conversion
+- JPEG restart interval support
 - No full-frame image buffer required
 
-### SD card support
+Restart interval decoding has been demonstrated successfully with a JPEG containing a DRI interval of 100 MCUs.
 
-- SPI microSD card access
-- Image loading from SD card files
-- SD directory browsing
-- File and directory navigation
+### microSD support
+
+- SPI microSD card access through SdFat
+- File and directory browsing
+- Directory navigation
+- Opening BMP and JPEG images from the card
+- Long filename support through the configured SdFat filesystem
+
+### Image scaling
+
+Both BMP and JPEG renderers support image scaling.
+
+The Universal Serial Image Browser provides a shared scale setting for both formats. Changing the scale while an image is displayed automatically redraws that image.
+
+The universal browser accepts scale values from 0.1× to 4.0×.
 
 ## Dependencies
 
-Install the following Arduino library:
+Install the following Arduino libraries:
 
 - [Adafruit GFX Library](https://github.com/adafruit/Adafruit-GFX-Library)
+- [SdFat](https://github.com/greiman/SdFat)
 
-The `SD` and `SPI` libraries are supplied by the selected Arduino core.
+The SPI library is supplied by the selected Arduino core.
 
-The examples use STM32duino-specific SPI pin configuration and AFIO remapping calls. The display driver uses Arduino GPIO APIs, but this project currently targets the STM32 architecture.
+The examples use STM32duino-specific SPI pin configuration and AFIO remapping calls. This project currently targets the STM32 architecture.
 
-## Default Blue Pill wiring
+## Hardware configuration
+
+### Default Blue Pill wiring
 
 The following pin mapping corresponds to the tested hardware configuration.
 
-### TFT control pins
+#### TFT control pins
 
 | TFT signal | Blue Pill pin |
 |---|---|
@@ -72,7 +92,7 @@ The following pin mapping corresponds to the tested hardware configuration.
 | RST | PA3 |
 | BLK | PA12 |
 
-### TFT 16-bit data bus
+#### TFT 16-bit data bus
 
 | TFT signal | Blue Pill pin | TFT signal | Blue Pill pin |
 |---|---|---|---|
@@ -85,9 +105,9 @@ The following pin mapping corresponds to the tested hardware configuration.
 | DB06 | PB9 | DB14 | PA5 |
 | DB07 | PB10 | DB15 | PA6 |
 
-The backlight is configured as active-low by default: `BLK LOW` turns it on, matching the tested module behavior.
+The backlight is configured as active-low by default. On the tested module, BLK LOW turns the backlight on.
 
-### microSD SPI wiring
+#### microSD SPI wiring
 
 | SD signal | Blue Pill pin |
 |---|---|
@@ -96,47 +116,76 @@ The backlight is configured as active-low by default: `BLK LOW` turns it on, mat
 | MISO | PB4 |
 | MOSI | PB5 |
 
-The SD examples disable JTAG while retaining SWD because PB3, PB4, and PB5 are used for the remapped SPI1 connection.
+The SD examples use the remapped SPI1 pins. JTAG is disabled while retaining SWD debugging because PB3 and PB4 are otherwise associated with JTAG functions.
 
-**Power note:** Confirm the supply-voltage and logic-level requirements of your specific TFT and SD modules before connecting them. Electrical ratings can vary between module revisions.
+**Power and logic-level note:** Confirm the supply-voltage and logic-level requirements of your particular TFT and SD modules before connecting them. Electrical ratings can vary between module revisions.
 
 ## Installation
 
-### Install using Arduino IDE
+### Arduino IDE
 
 1. Download or clone this repository.
-2. Place the library folder inside your Arduino `libraries` directory, or install the repository ZIP through **Sketch → Include Library → Add .ZIP Library**.
-3. Install the Adafruit GFX Library through the Arduino Library Manager.
-4. Select an STM32F103C8T6 Blue Pill-compatible board configuration.
-5. Open an example from **File → Examples → DevEBox ILI9341 Parallel**.
+2. Place the library folder inside your Arduino `libraries` directory, or install the repository ZIP using **Sketch → Include Library → Add .ZIP Library**.
+3. Install the Adafruit GFX Library through Library Manager.
+4. Install SdFat through Library Manager.
+5. Select an STM32F103C8T6 Blue Pill-compatible board configuration.
+6. Open an example through **File → Examples → DevEBox ILI9341 Parallel**.
 
 Restart Arduino IDE if the library does not appear immediately.
 
+For the image examples, configure the microSD card with the required image files in its root directory, or adjust the filename in the example.
+
 ## Examples
 
-The repository includes example sketches demonstrating the library's main functionality.
+The repository includes six examples.
 
 | Example | Description |
 |---|---|
-| `Basic_Display` | Initializes the TFT and demonstrates basic graphics and text. |
-| `SD_Card_Test` | Initializes the microSD card and tests file access. |
-| `BMP_Display` | Loads and displays a BMP image from the SD card. |
+| `Basic_Display` | Initializes the TFT and demonstrates graphics, text, and RGB565 colors. |
+| `BMP_Image_Viewer` | Loads and displays a BMP image from the microSD card. |
 | `BMP_Scaling` | Demonstrates BMP image scaling. |
-| `SD_File_Browser` | Demonstrates SD directory navigation and file browsing. |
-| `JPEG_Display` | Loads and decodes a baseline JPEG image from the SD card. |
-| `Universal_Image_Browser` | Demonstrates browsing and displaying supported image formats. |
+| `JPEG_Image_Viewer` | Loads and displays a baseline JPEG image from the microSD card. |
+| `JPEG_Scaling` | Demonstrates JPEG image scaling. |
+| `Universal_Serial_Image_Browser` | Provides serial file browsing, directory navigation, BMP/JPEG viewing, and shared image scaling with automatic redraw. |
 
-Refer to each example sketch for its required SD card files and configuration.
+### Universal Serial Image Browser commands
+
+The universal browser uses `Serial1` at 115200 baud.
+
+| Command | Description |
+|---|---|
+| `ls` | List directory contents |
+| `cd FOLDER` | Enter a directory |
+| `cd /` | Return to the root directory |
+| `up` | Move to the parent directory |
+| `pwd` | Display the current directory |
+| `open IMAGE.BMP` | Open a BMP image |
+| `open IMAGE.JPG` | Open a JPEG image |
+| `scale` | Display the current scale |
+| `scale 0.5` | Set scale to 0.5× |
+| `scale 1.0` | Set scale to 1.0× |
+| `scale 2.0` | Set scale to 2.0× |
+| `help` | Display available commands |
+
+Scaling applies to both BMP and JPEG images. Changing the scale automatically redraws the currently displayed image.
 
 ## Basic display example
 
 ```cpp
-#include <DevEBox_ILI9341.h>
+#include <Arduino.h>
+#include "DevEBox_ILI9341.h"
+
+#define LCD_BACKLIGHT PA12
 
 DevEBox_ILI9341 tft;
 
 void setup() {
+  pinMode(LCD_BACKLIGHT, OUTPUT);
+  digitalWrite(LCD_BACKLIGHT, LOW);
+
   tft.begin();
+  tft.setBacklight(true);
+
   tft.fillScreen(0x0000);
 
   tft.setTextColor(0xFFFF);
@@ -148,10 +197,11 @@ void setup() {
   tft.fillCircle(220, 90, 35, 0x07E0);
 }
 
-void loop() {}
+void loop() {
+}
 ```
 
-## Image support
+## Image format details
 
 ### BMP
 
@@ -161,30 +211,30 @@ The BMP decoder supports:
 - 32-bit `BI_RGB`
 - 32-bit `BI_BITFIELDS`
 
-Both bottom-up and top-down BMP orientations are supported. Images can also be scaled to fit the display, including downscaling larger source images.
+Both bottom-up and top-down BMP orientations are supported. Images can be scaled, centered, and clipped to the display boundaries.
 
 ### JPEG
 
-The JPEG decoder is a custom implementation designed for memory-constrained microcontrollers. It decodes baseline sequential JPEG images and renders image data to the TFT as it is decoded.
+The JPEG decoder is a custom implementation designed for memory-constrained microcontrollers. It decodes baseline sequential JPEG images and renders image data incrementally.
 
-Supported JPEG features:
+Supported features:
 
 - 8-bit baseline sequential JPEG (`SOF0`)
 - Grayscale images
 - Three-component JFIF-style YCbCr images
 - 4:4:4, 4:2:2, and 4:2:0 sampling
+- Restart interval decoding
 
-The decoder does not require a full-frame framebuffer. It processes image data in minimum coded units (MCUs), reducing memory requirements.
+The decoder processes image data in minimum coded units (MCUs), avoiding the need for a full-frame framebuffer.
 
 **JPEG limitations:**
 
 - Progressive JPEG is not supported.
 - Lossless JPEG is not supported.
 - Arithmetic-coded JPEG is not supported.
-- Nonzero restart intervals are not currently supported.
 - Three-component color decoding expects JFIF component identifiers 1, 2, and 3.
 
-For the most predictable results, use baseline sequential JPEG files.
+For predictable results, use baseline sequential JPEG files.
 
 ## Configuration
 
@@ -209,46 +259,53 @@ DevEBox_ILI9341_Parallel/
 │   ├── DevEBox_BMP.cpp
 │   ├── DevEBox_JPEG.h
 │   ├── DevEBox_JPEG.cpp
-│   └── ...
+│   ├── DevEBox_JPEG_Color.h
+│   ├── DevEBox_JPEG_Color.cpp
+│   ├── DevEBox_JPEG_Display.h
+│   ├── DevEBox_JPEG_Display.cpp
+│   ├── DevEBox_IDCT.h
+│   ├── DevEBox_IDCT.cpp
+│   ├── DevEBox_SD_Browser.h
+│   └── DevEBox_SD_Browser.cpp
 │
 ├── examples/
 │   ├── Basic_Display/
-│   ├── SD_Card_Test/
-│   ├── BMP_Display/
+│   ├── BMP_Image_Viewer/
 │   ├── BMP_Scaling/
-│   ├── SD_File_Browser/
-│   ├── JPEG_Display/
-│   └── Universal_Image_Browser/
+│   ├── JPEG_Image_Viewer/
+│   ├── JPEG_Scaling/
+│   └── Universal_Serial_Image_Browser/
 │
 ├── library.properties
 ├── LICENSE
 └── README.md
 ```
 
-The source directory may contain additional implementation and helper files as the library develops.
-
 ## Performance and memory considerations
 
-The display driver uses GPIO operations to communicate with the 16-bit parallel bus. This approach prioritizes portability and straightforward hardware control rather than maximum possible throughput.
+The display driver uses GPIO operations to communicate with the 16-bit parallel bus. This approach prioritizes straightforward hardware control rather than maximum possible throughput.
 
-The JPEG decoder processes image data incrementally instead of allocating a full image framebuffer. This makes it more suitable for memory-constrained microcontrollers such as the STM32F103C8T6.
+The JPEG decoder processes image data incrementally instead of allocating a full image framebuffer. This reduces memory requirements on microcontrollers such as the STM32F103C8T6.
 
-Actual performance depends on image dimensions, JPEG sampling configuration, SD card speed, and the display's GPIO write speed.
+Actual performance depends on image dimensions, JPEG sampling configuration, SD card speed, and display GPIO write speed.
+
+The STM32F103C8T6 has limited Flash and SRAM resources. When compiling the larger image-decoding examples, the Arduino IDE's optimization settings can affect whether the firmware fits in available Flash.
 
 ## Known limitations
 
 - The initial hardware target is the STM32F103C8T6 Blue Pill and the described DevEBox 320 × 240 ILI9341 16-bit parallel module.
 - The display driver uses GPIO-based parallel communication.
-- BMP support is limited to 24-bit `BI_RGB` and 32-bit `BI_RGB` / `BI_BITFIELDS`.
-- JPEG support is limited to the baseline sequential formats described above.
+- BMP support is limited to the documented 24-bit and 32-bit formats.
+- JPEG support is limited to the documented baseline sequential formats.
 - Progressive, lossless, and arithmetic-coded JPEG are not supported.
-- JPEG restart intervals are not currently supported.
 - Touch input is not implemented.
 - Hardware compatibility with other boards and display modules has not been established.
 
 ## Contributing
 
-Contributions, bug reports, and suggestions are welcome. If reporting a hardware issue, include:
+Contributions, bug reports, and suggestions are welcome.
+
+When reporting a hardware issue, include:
 
 - Microcontroller and board configuration
 - Display module and interface

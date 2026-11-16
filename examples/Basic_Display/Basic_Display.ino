@@ -1,72 +1,82 @@
-
-#include <Arduino.h>
-#include "DevEBox_ILI9341.h"
-
-// ============================================================
-// DevEBox ILI9341 - Basic Display Example
-// Board: STM32F103C8T6 Blue Pill
-// Display: DevEBox 3.2-inch ILI9341, 320x240
-// ============================================================
+#include <DevEBox_ILI9341.h>
 
 DevEBox_ILI9341 tft;
 
-// RGB565 color definitions
-#define BLACK   0x0000
-#define WHITE   0xFFFF
-#define RED     0xF800
-#define GREEN   0x07E0
-#define BLUE    0x001F
-#define YELLOW  0xFFE0
-#define CYAN    0x07FF
-#define MAGENTA 0xF81F
+// RGB565 colors
+#define COLOR_BLACK       0x0000
+#define COLOR_WHITE       0xFFFF
+#define COLOR_RED         0xF800
+#define COLOR_GREEN       0x07E0
+#define COLOR_BLUE        0x001F
+#define COLOR_YELLOW      0xFFE0
+#define COLOR_CYAN        0x07FF
+#define COLOR_MAGENTA     0xF81F
+#define COLOR_ORANGE      0xFD20
+
+void drawDemoScreen();
 
 void setup() {
-
-  Serial1.begin(115200);
-  delay(1000);
-
-  Serial1.println();
-  Serial1.println("==============================");
-  Serial1.println(" DevEBox Basic Display Example");
-  Serial1.println("==============================");
-
-  // Initialize the TFT.
-  Serial1.println("Initializing display...");
-
   tft.begin();
   tft.setBacklight(true);
+  tft.setRotation(1);
 
-  Serial1.println("Display initialized!");
-
-  // Display a sequence of RGB565 colors.
-  Serial1.println("Starting color demonstration...");
-
-  tft.fillScreen(RED);
-  delay(1000);
-
-  tft.fillScreen(GREEN);
-  delay(1000);
-
-  tft.fillScreen(BLUE);
-  delay(1000);
-
-  tft.fillScreen(YELLOW);
-  delay(1000);
-
-  tft.fillScreen(CYAN);
-  delay(1000);
-
-  tft.fillScreen(MAGENTA);
-  delay(1000);
-
-  tft.fillScreen(WHITE);
-  delay(1000);
-
-  tft.fillScreen(BLACK);
-
-  Serial1.println("Color demonstration complete!");
+  drawDemoScreen();
 }
 
 void loop() {
   // Nothing to do.
+}
+
+void drawDemoScreen() {
+  const int16_t screenW = tft.width();
+
+  tft.fillScreen(COLOR_BLACK);
+
+  // Header
+  tft.fillRect(0, 0, screenW, 38, COLOR_BLUE);
+  tft.setTextSize(2);
+  tft.setTextColor(COLOR_WHITE);
+  tft.setCursor(10, 11);
+  tft.print("DevEBox ILI9341");
+
+  // Section title
+  tft.setTextSize(1);
+  tft.setTextColor(COLOR_YELLOW);
+  tft.setCursor(10, 48);
+  tft.print("Adafruit_GFX Drawing Functions");
+
+  // Rectangles and lines
+  tft.drawRect(10, 65, 140, 105, COLOR_WHITE);
+  tft.drawLine(20, 75, 140, 160, COLOR_RED);
+  tft.drawLine(140, 75, 20, 160, COLOR_GREEN);
+  tft.fillRect(55, 100, 50, 35, COLOR_BLUE);
+  tft.drawRect(55, 100, 50, 35, COLOR_WHITE);
+
+  // Circles
+  tft.drawCircle(205, 105, 35, COLOR_CYAN);
+  tft.fillCircle(205, 105, 20, COLOR_MAGENTA);
+  tft.drawCircle(275, 105, 25, COLOR_YELLOW);
+  tft.fillCircle(275, 105, 12, COLOR_ORANGE);
+
+  // RGB565 color swatches
+  tft.setTextColor(COLOR_WHITE);
+  tft.setCursor(10, 183);
+  tft.print("RGB565 Colors:");
+
+  const uint16_t colors[] = {
+    COLOR_RED, COLOR_GREEN, COLOR_BLUE, COLOR_YELLOW,
+    COLOR_CYAN, COLOR_MAGENTA, COLOR_ORANGE, COLOR_WHITE
+  };
+
+  for (uint8_t i = 0; i < 8; i++) {
+    const int16_t x = 10 + (i * 38);
+    tft.fillRect(x, 198, 34, 20, colors[i]);
+    tft.drawRect(x, 198, 34, 20, COLOR_WHITE);
+  }
+
+  // Text
+  tft.setTextSize(1);
+  tft.setTextColor(COLOR_GREEN);
+  tft.setCursor(10, 226);
+  tft.print("Display ready!");
 }
